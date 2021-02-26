@@ -368,7 +368,7 @@ void sdl_producer_pool_blocking_give(struct audio_connection *connection, struct
         tight_loop_contents();
     }
     assert(buffer->format->sample_stride == bytes_per_frame);
-    int rc = SDL_QueueAudio(sdl_audio_device_id, buffer->buffer->bytes, buffer->sample_count * bytes_per_frame);
+    int __unused rc = SDL_QueueAudio(sdl_audio_device_id, buffer->buffer->bytes, buffer->sample_count * bytes_per_frame);
     assert(!rc);
     queue_free_audio_buffer(connection->producer_pool, buffer);
 }
@@ -381,7 +381,6 @@ void sdl_producer_pool_blocking_give_s8(struct audio_connection *connection, str
     }
     static int16_t sample_buffer[16384];
     // todo this is wrong for setting a single channel of stereo via non interleave
-    uint8_t *output_data = buffer->buffer->bytes;
     int sample_count = buffer->sample_count;
     int channel_sample_count = sample_count * buffer->format->format->channel_count;
     assert(channel_sample_count < count_of(sample_buffer));
@@ -389,7 +388,7 @@ void sdl_producer_pool_blocking_give_s8(struct audio_connection *connection, str
         sample_buffer[i] = buffer->buffer->bytes[i] << 8u;
     }
     assert(buffer->format->sample_stride * 2 == bytes_per_frame);
-    int rc = SDL_QueueAudio(sdl_audio_device_id, sample_buffer, buffer->sample_count * bytes_per_frame);
+    int __unused rc = SDL_QueueAudio(sdl_audio_device_id, sample_buffer, buffer->sample_count * bytes_per_frame);
     assert(!rc);
     queue_free_audio_buffer(connection->producer_pool, buffer);
 }
