@@ -1496,10 +1496,6 @@ void multicore_launch_core1(void (*entry)(void)) {
     SDL_CreateThread(core1_thread_func, "Core 1", (void *) entry);
 }
 
-void multicore_sleep_core1() {
-    panic_unsupported();
-}
-
 void multicore_lockout_victim_init() {
     panic_unsupported();
 }
