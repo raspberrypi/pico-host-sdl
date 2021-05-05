@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.13)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
+if (PICO_SDK_VERSION_STRING VERSION_LESS "1.2.0")
+    message(FATAL_ERROR "Require at least Raspberry Pi Pico SDK version 1.2.0")
+endif()
+
+include(pico_extras_import.cmake)
 
 project(pico_host_sdl)
 
@@ -98,7 +103,7 @@ if (PICO_PLATFORM STREQUAL "host")
     target_link_libraries(pico_audio_pwm INTERFACE pico_host_audio pico_host_video)
 
     add_library(hardware_timer INTERFACE)
-    # todo this is a bit of a hack - we should have infrastructure to pull in the default
+
     target_sources(hardware_timer INTERFACE
             ${PICO_SDK_PATH}/src/host/hardware_timer/timer.c)
     target_include_directories(hardware_timer INTERFACE ${PICO_SDK_PATH}/src/host/hardware_timer/include)
@@ -106,11 +111,19 @@ if (PICO_PLATFORM STREQUAL "host")
 
     # we support alarms
     set(PICO_TIME_NO_ALARM_SUPPORT "0" CACHE INTERNAL "")
-
 endif()
 
-list(APPEND PICO_SDK_POST_LIST_DIRS ${CMAKE_CURRENT_LIST_DIR}/extras_import)
-set(PICO_SDK_POST_LIST_DIRS ${PICO_SDK_POST_LIST_DIRS} PARENT_SCOPE)
+pico_is_top_level_project(PICO_HOST_SDL_TOP_LEVEL_PROJECT)
 
+# The real work gets done in post_init which is called at the end of pico_sdk_init
+list(APPEND PICO_SDK_POST_LIST_FILES ${CMAKE_CURRENT_LIST_DIR}/post_init.cmake)
 list(APPEND PICO_CONFIG_HEADER_FILES ${CMAKE_CURRENT_LIST_DIR}/include/pico/pico_host_sdl.h)
-set(PICO_CONFIG_HEADER_FILES ${PICO_CONFIG_HEADER_FILES} PARENT_SCOPE)
+if (PICO_HOST_SDL_TOP_LEVEL_PROJECT)
+    message("pico_HOST_SDL: initialize SDK since we're the top-level")
+    # Initialize the SDK
+    pico_sdk_init()
+else()
+    set(PICO_SDK_POST_LIST_FILES ${PICO_SDK_POST_LIST_FILES} PARENT_SCOPE)
+    set(PICO_CONFIG_HEADER_FILES ${PICO_CONFIG_HEADER_FILES} PARENT_SCOPE)
+endif()
+
