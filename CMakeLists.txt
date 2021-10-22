@@ -123,7 +123,6 @@ if (PICO_HOST_SDL_TOP_LEVEL_PROJECT)
     # Initialize the SDK
     pico_sdk_init()
 else()
-    set(PICO_SDK_POST_LIST_FILES ${PICO_SDK_POST_LIST_FILES} PARENT_SCOPE)
-    set(PICO_CONFIG_HEADER_FILES ${PICO_CONFIG_HEADER_FILES} PARENT_SCOPE)
+    pico_promote_common_scope_vars()
 endif()
 

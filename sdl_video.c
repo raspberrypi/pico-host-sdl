@@ -53,7 +53,9 @@ bool mouse_down;
 double vsync_freq;
 
 #if PICO_SCANVIDEO_LINKED_SCANLINE_BUFFERS
+#ifndef MAX_LINKED_SCANLINE_BUFFERS
 #define MAX_LINKED_SCANLINE_BUFFERS 2
+#endif
 #else
 #define MAX_LINKED_SCANLINE_BUFFERS 0
 #endif
@@ -165,7 +167,7 @@ struct full_scanvideo_scanline_buffer core_scaneline_buffers[NUM_CORES] = {
 
 #ifdef PICO_SCANVIDEO_LINKED_SCANLINE_BUFFERS
 struct full_scanvideo_scanline_buffer core_scaneline_buffers_linked[NUM_CORES][MAX_LINKED_SCANLINE_BUFFERS];
-uint32_t *core_scanline_data_linked[NUM_CORES][MAX_LINKED_SCANLINE_BUFFERS];
+uint32_t core_scanline_data_linked[NUM_CORES][MAX_LINKED_SCANLINE_BUFFERS][PICO_SCANVIDEO_MAX_SCANLINE_BUFFER_WORDS];
 #endif
 
 int core0_thread_func(void *data) {
@@ -469,7 +471,7 @@ bool scanvideo_setup_with_timing(const struct scanvideo_mode *mode, const struct
     for(int c=0; c< NUM_CORES; c++) {
         for (int i = 0; i < MAX_LINKED_SCANLINE_BUFFERS; i++) {
             struct scanvideo_scanline_buffer *sb = &core_scaneline_buffers_linked[c][i].core;
-            sb->data = calloc(4, PICO_SCANVIDEO_MAX_SCANLINE_BUFFER_WORDS);
+            sb->data = &core_scanline_data_linked[c][i][0];//calloc(4, PICO_SCANVIDEO_MAX_SCANLINE_BUFFER_WORDS);
             sb->data_used = 0,
             sb->data_max = PICO_SCANVIDEO_MAX_SCANLINE_BUFFER_WORDS;
 #if PICO_SCANVIDEO_PLANE_COUNT > 1
@@ -522,14 +524,10 @@ struct scanvideo_scanline_buffer *scanvideo_begin_scanline_generation_linked(uin
     assert(n <= MAX_LINKED_SCANLINE_BUFFERS);
     fsb->core.link = NULL;
     fsb->core.link_after = 0;
-    for(int i=0; i < n-1; i++) {
+    for(int i=0; i < n - 1; i++) {
         core_scaneline_buffers_linked[core][i].core.scanline_id = next_scanline_id;
-        core_scaneline_buffers_linked[core][i].core.link = NULL;
-        if (i) {
-            core_scaneline_buffers_linked[core][i].core.link = &core_scaneline_buffers_linked[core][i].core;
-        } else {
-            fsb->core.link = &core_scaneline_buffers_linked[core][i].core;
-        }
+        core_scaneline_buffers_linked[core][i].core.link = fsb->core.link;
+        fsb->core.link = &core_scaneline_buffers_linked[core][i].core;
     }
 #endif
     mutex_exit(&scanline_mutex);
@@ -568,12 +566,14 @@ void scanvideo_wait_for_vblank() {
 uint32_t host_safe_hw_ptr_impl(uintptr_t x) {
     if (!x) return 0;
     int64_t offset = x - (uintptr_t) &_hardware_base;
+//    printf("Encode 0x%lx 0x%lx\n", x, offset);
     assert(offset >= INT32_MIN && offset <= INT32_MAX);
     return (uint32_t) offset;
 }
 
 void *decode_host_safe_hw_ptr(uint32_t ptr) {
     if (!ptr) return 0;
+//    printf("Decode 0x%08x 0x%lx\n", ptr, (((int32_t) ptr) + (uintptr_t) &_hardware_base));
     return (void *) (((int32_t) ptr) + (uintptr_t) &_hardware_base);
 }
 
@@ -657,9 +657,9 @@ void scanvideo_end_scanline_generation(struct scanvideo_scanline_buffer *scanlin
             int expected_width = video_mode.width;
 #if PICO_SCANVIDEO_PLANE1_VARIABLE_FRAGMENT_DMA
             static uint32_t buf[1024];
-    data_used = merge_dma_chain_variable(data, data_used, buf, count_of(buf));
-    data = buf;
-    expected_width = 0; // for now don't assert on width for this
+            data_used = merge_dma_chain_variable(data, data_used, buf, count_of(buf));
+            data = buf;
+            expected_width = 0; // for now don't assert on width for this
 #endif
 #if PICO_SCANVIDEO_PLANE1_FIXED_FRAGMENT_DMA
             static uint32_t buf[1024];
@@ -741,6 +741,7 @@ void check_textures() {
         apply_aspect_ratio();
         texture_raw = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR565, SDL_TEXTUREACCESS_STREAMING,
                                         video_mode.width, timing.v_active);
+        printf("tr %p\n", texture_raw);
     }
 #if PICO_SCANVIDEO_SCALING_BLUR
     int effective_width = video_mode.width * video_mode.xscale;
@@ -1372,21 +1373,25 @@ void redraw() {
     SDL_Texture *draw_texture = NULL;
     if (video_mode_valid) {
         check_textures();
-        SDL_UpdateTexture(texture_raw, NULL, pico_access_surface->pixels, pico_access_surface->pitch);
-        if (renderer_targettexture_supported && PICO_SCANVIDEO_SCALING_BLUR) {
+        SDL_Surface *surface = pico_access_surface;
+        // there can be a race with the creation of pico_access_surface which is done by SDK api
+        if (surface) {
+            SDL_UpdateTexture(texture_raw, NULL, surface->pixels, surface->pitch);
+            if (renderer_targettexture_supported && PICO_SCANVIDEO_SCALING_BLUR) {
 #if PICO_SCANVIDEO_SCALING_NEAREST
-            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 #else
-            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
+                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 #endif
-            SDL_SetRenderTarget(renderer, texture_blurred);
-            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, texture_raw, NULL, NULL);
-            SDL_SetRenderTarget(renderer, NULL);
-            draw_texture = texture_blurred;
-        } else {
-            draw_texture = texture_raw;
+                SDL_SetRenderTarget(renderer, texture_blurred);
+                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+                SDL_RenderClear(renderer);
+                SDL_RenderCopy(renderer, texture_raw, NULL, NULL);
+                SDL_SetRenderTarget(renderer, NULL);
+                draw_texture = texture_blurred;
+            } else {
+                draw_texture = texture_raw;
+            }
         }
     }
     SDL_RenderClear(renderer);

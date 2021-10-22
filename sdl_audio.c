@@ -475,17 +475,21 @@ bool audio_i2s_connect_s8(struct audio_buffer_pool *producer_pool) {
     return native_audio_connect(producer_pool);
 }
 
+bool audio_i2s_connect_extra(audio_buffer_pool_t *producer_pool, __unused bool buffer_on_give, __unused uint buffer_count,
+                             __unused uint samples_per_buffer, __unused audio_connection_t *connection) {
+    return native_audio_connect(producer_pool);
+}
 
 void audio_i2s_set_enabled(bool enable) {
     return native_audio_enable(enable);
 }
 
 bool audio_pwm_set_correction_mode(enum audio_correction_mode mode) {
-    return mode == none;
+    return mode == acm_none;
 }
 
 enum audio_correction_mode audio_pwm_get_correction_mode() {
-    return none;
+    return acm_none;
 }
 
 #define AUDIO_UPSAMPLE_FRACTION_BITS 12u
