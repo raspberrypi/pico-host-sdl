@@ -485,11 +485,11 @@ void audio_i2s_set_enabled(bool enable) {
 }
 
 bool audio_pwm_set_correction_mode(enum audio_correction_mode mode) {
-    return mode == acm_none;
+    return mode == none;
 }
 
 enum audio_correction_mode audio_pwm_get_correction_mode() {
-    return acm_none;
+    return none;
 }
 
 #define AUDIO_UPSAMPLE_FRACTION_BITS 12u
