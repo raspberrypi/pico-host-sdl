@@ -193,7 +193,8 @@ int main(int argc, char **argv) {
 #ifdef SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING
     SDL_SetHint(SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING, "1");
 #endif
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+    // SDL_INIT_GAMEControLLER seems to cause crash
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER/* | SDL_INIT_GAMECONTROLLER*/) != 0) {
         assert(false);
     }
     cpu_core_ids = SDL_TLSCreate();

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.13)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
-if (PICO_SDK_VERSION_STRING VERSION_LESS "1.2.0")
-    message(FATAL_ERROR "Require at least Raspberry Pi Pico SDK version 1.2.0")
+if (PICO_SDK_VERSION_STRING VERSION_LESS "2.0.0")
+    message(FATAL_ERROR "Require at least Raspberry Pi Pico SDK version 2.0.0")
 endif()
 
 include(pico_extras_import.cmake)
@@ -83,6 +83,7 @@ if (PICO_PLATFORM STREQUAL "host")
 
     target_link_libraries(pico_host_timer INTERFACE
             pico_time
+            pico_time_adapter
     )
 
     add_library(pico_sd_card INTERFACE)
